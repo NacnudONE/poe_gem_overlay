@@ -1,0 +1,47 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE
+        run: |
+          python -m PyInstaller --noconfirm --onefile --windowed `
+            --name "PoE_Gem_Overlay" `
+            --add-data "icons;icons" `
+            --hidden-import "mss" `
+            --hidden-import "PIL" `
+            --hidden-import "PIL.Image" `
+            --hidden-import "PIL.ImageOps" `
+            --hidden-import "PIL.ImageFilter" `
+            --hidden-import "pytesseract" `
+            --hidden-import "keyboard" `
+            --hidden-import "cv2" `
+            --hidden-import "requests" `
+            --hidden-import "difflib" `
+            app.py
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/PoE_Gem_Overlay.exe
+          generate_release_notes: true
