@@ -4,20 +4,20 @@ import ctypes.wintypes
 import threading
 import config
 
-GWL_EXSTYLE    = -20
-WS_EX_LAYERED  = 0x00080000
+GWL_EXSTYLE       = -20
+WS_EX_LAYERED     = 0x00080000
 WS_EX_TRANSPARENT = 0x00000020
 
 COLOR_BG    = "#1a1a1a"
-COLOR_DRAG  = "#1a1a3a"     # підсвітка в режимі перетягування
+COLOR_DRAG  = "#1a1a3a"
 COLOR_TEXT  = "#e0e0e0"
 COLOR_BEST  = "#FFD700"
 COLOR_PRICE = "#aaffaa"
-COLOR_TITLE = "#888888"
+COLOR_TITLE = "#c9a96e"   # золотистий для шапки
+COLOR_DIM   = "#555555"   # для підзаголовка
 
 
 def _is_poe_focused() -> bool:
-    """Повертає True якщо Path of Exile зараз активне вікно."""
     try:
         hwnd = ctypes.windll.user32.GetForegroundWindow()
         if not hwnd:
@@ -29,17 +29,25 @@ def _is_poe_focused() -> bool:
         return False
 
 
+def _cursor_pos() -> tuple[int, int]:
+    pt = ctypes.wintypes.POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+    return pt.x, pt.y
+
+
 class GemOverlay:
     def __init__(self):
-        self._root        = None
-        self._thread      = None
-        self._lock        = threading.Lock()
+        self._root            = None
+        self._thread          = None
+        self._lock            = threading.Lock()
         self._pending_results = None
-        self._has_content = False
-        self._drag_mode   = False
-        self._poe_focused = False
-        self._drag_x      = 0
-        self._drag_y      = 0
+        self._has_content     = False
+        self._drag_mode       = False
+        self._poe_focused     = False
+        self._hovering        = False
+        self._gem_count       = 0
+        self._drag_x          = 0
+        self._drag_y          = 0
 
     def start(self):
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -52,24 +60,36 @@ class GemOverlay:
         self._root.attributes("-topmost", True)
         self._root.attributes("-alpha", 0.92)
         self._root.configure(bg=COLOR_BG)
-        self._root.geometry(f"320x50+{config.OVERLAY_X}+{config.OVERLAY_Y}")
-        self._root.withdraw()   # ховаємо до першого виявлення PoE
+        self._root.geometry(f"320x40+{config.OVERLAY_X}+{config.OVERLAY_Y}")
+        self._root.withdraw()
 
         self._make_click_through()
 
-        self._frame = tk.Frame(self._root, bg=COLOR_BG, padx=8, pady=6)
+        self._frame = tk.Frame(self._root, bg=COLOR_BG, padx=8, pady=4)
         self._frame.pack(fill=tk.BOTH, expand=True)
 
-        self._title_label = tk.Label(
-            self._frame, text="PoE Gem Prices",
-            font=("Consolas", 9), fg=COLOR_TITLE, bg=COLOR_BG, anchor="w",
+        # Шапка — прихована за замовчуванням, з'являється при наведенні
+        self._header_frame = tk.Frame(self._frame, bg=COLOR_BG)
+        self._header_title = tk.Label(
+            self._header_frame,
+            text="⚗  PoE Gem Prices",
+            font=("Consolas", 10, "bold"),
+            fg=COLOR_TITLE, bg=COLOR_BG, anchor="w",
         )
-        self._title_label.pack(fill=tk.X)
+        self._header_title.pack(side=tk.LEFT)
+        tk.Label(
+            self._header_frame,
+            text="poe.trade",
+            font=("Consolas", 8),
+            fg=COLOR_DIM, bg=COLOR_BG, anchor="e",
+        ).pack(side=tk.RIGHT)
+        # НЕ пакуємо _header_frame — він захований
 
         self._gems_frame = tk.Frame(self._frame, bg=COLOR_BG)
         self._gems_frame.pack(fill=tk.BOTH, expand=True)
 
         self._root.after(100, self._check_updates)
+        self._root.after(150, self._check_hover)
         self._root.after(500, self._check_poe_focus)
         self._root.mainloop()
 
@@ -95,6 +115,36 @@ class GemOverlay:
         except Exception as e:
             print(f"[overlay] remove click-through failed: {e}")
 
+    # ------------------------------------------------------------------ Hover (шапка)
+
+    def _check_hover(self):
+        if not self._drag_mode and self._root.winfo_ismapped():
+            cx, cy = _cursor_pos()
+            x  = self._root.winfo_x()
+            y  = self._root.winfo_y()
+            w  = self._root.winfo_width()
+            h  = self._root.winfo_height()
+            hovering = (x <= cx <= x + w) and (y <= cy <= y + h)
+            if hovering != self._hovering:
+                self._hovering = hovering
+                self._update_header()
+        self._root.after(150, self._check_hover)
+
+    def _update_header(self):
+        show = self._hovering or self._drag_mode
+        if show:
+            self._header_frame.pack(fill=tk.X, before=self._gems_frame)
+        else:
+            self._header_frame.pack_forget()
+        self._recalc_height()
+
+    def _recalc_height(self):
+        self._root.update_idletasks()
+        h = self._root.winfo_reqheight()
+        x = self._root.winfo_x()
+        y = self._root.winfo_y()
+        self._root.geometry(f"320x{max(h, 30)}+{x}+{y}")
+
     # ------------------------------------------------------------------ PoE detection
 
     def _check_poe_focus(self):
@@ -115,7 +165,6 @@ class GemOverlay:
     # ------------------------------------------------------------------ Drag
 
     def unlock(self):
-        """Вмикає режим перетягування."""
         if self._root:
             self._root.after(0, self._do_unlock)
 
@@ -124,18 +173,18 @@ class GemOverlay:
         self._remove_click_through()
         self._root.configure(bg=COLOR_DRAG)
         self._frame.configure(bg=COLOR_DRAG)
-        self._title_label.configure(
-            text="✥  Drag to move  ✥",
-            fg="#6688ff", bg=COLOR_DRAG,
-        )
+        self._header_frame.configure(bg=COLOR_DRAG)
+        for child in self._header_frame.winfo_children():
+            child.configure(bg=COLOR_DRAG)
+        self._header_title.configure(text="✥  Drag to move  ✥", fg="#6688ff")
+        self._update_header()
         self._root.deiconify()
-        for w in (self._root, self._frame, self._title_label, self._gems_frame):
+        for w in (self._root, self._frame, self._header_frame, self._gems_frame):
             w.bind("<ButtonPress-1>", self._drag_start)
             w.bind("<B1-Motion>",     self._drag_motion)
             w.configure(cursor="fleur")
 
     def lock(self):
-        """Зберігає позицію і вимикає режим перетягування."""
         if self._root:
             self._root.after(0, self._do_lock)
 
@@ -146,11 +195,16 @@ class GemOverlay:
         self._make_click_through()
         self._root.configure(bg=COLOR_BG)
         self._frame.configure(bg=COLOR_BG)
-        self._title_label.configure(text="PoE Gem Prices", fg=COLOR_TITLE, bg=COLOR_BG)
-        for w in (self._root, self._frame, self._title_label, self._gems_frame):
+        self._header_frame.configure(bg=COLOR_BG)
+        for child in self._header_frame.winfo_children():
+            child.configure(bg=COLOR_BG)
+        self._header_title.configure(text="⚗  PoE Gem Prices", fg=COLOR_TITLE)
+        for w in (self._root, self._frame, self._header_frame, self._gems_frame):
             w.unbind("<ButtonPress-1>")
             w.unbind("<B1-Motion>")
             w.configure(cursor="")
+        self._hovering = False
+        self._update_header()
         self._apply_visibility()
 
     def _drag_start(self, event):
@@ -178,15 +232,7 @@ class GemOverlay:
             widget.destroy()
 
         self._has_content = bool(results)
-
-        x = self._root.winfo_x()
-        y = self._root.winfo_y()
-
-        if not results:
-            self._root.geometry(f"320x30+{x}+{y}")
-            if not self._drag_mode:
-                self._apply_visibility()
-            return
+        self._gem_count   = len(results)
 
         for gem in results:
             row = tk.Frame(self._gems_frame, bg=COLOR_BG)
@@ -211,9 +257,9 @@ class GemOverlay:
                 bg=COLOR_BG, anchor="e", width=8,
             ).pack(side=tk.RIGHT)
 
-        height = 30 + len(results) * 22
-        self._root.geometry(f"320x{height}+{x}+{y}")
-        self._apply_visibility()
+        self._recalc_height()
+        if not self._drag_mode:
+            self._apply_visibility()
 
     # ------------------------------------------------------------------ Public API
 
