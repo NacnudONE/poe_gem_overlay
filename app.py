@@ -37,6 +37,7 @@ class App(tk.Tk):
         self._overlay = GemOverlay()
         self._log_queue = queue.Queue()
         self._seen_gems = {}
+        self._overlay_drag = False
 
         self._build_ui()
         self._overlay.start()
@@ -151,6 +152,15 @@ class App(tk.Tk):
         )
         self._clear_btn.pack(side=tk.RIGHT, padx=(0, 6))
 
+        self._move_btn = tk.Button(
+            btn_row2, text=i18n.t("move_overlay"),
+            font=("Consolas", 9), bg=BG2, fg=TEXT2,
+            activebackground="#3a3a5e", activeforeground=TEXT,
+            relief="flat", bd=0, padx=8, pady=5, cursor="hand2",
+            command=self._toggle_overlay_drag,
+        )
+        self._move_btn.pack(side=tk.LEFT)
+
         # --- Лог ---
         self._log_frame = tk.LabelFrame(
             self, text=i18n.t("log"), font=("Consolas", 9),
@@ -176,6 +186,9 @@ class App(tk.Tk):
         self._scan_static.configure(text=i18n.t("scanning"))
         self._refresh_btn.configure(text=i18n.t("refresh"))
         self._clear_btn.configure(text=i18n.t("clear"))
+        self._move_btn.configure(
+            text=i18n.t("lock_overlay") if self._overlay_drag else i18n.t("move_overlay")
+        )
 
         # Кнопка старт/стоп
         if self._running:
@@ -227,6 +240,16 @@ class App(tk.Tk):
     def _do_fetch_leagues(self):
         leagues = trade_fetcher.fetch_leagues()
         self.after(0, lambda: self._league_combo.configure(values=leagues))
+
+    def _toggle_overlay_drag(self):
+        if not self._overlay_drag:
+            self._overlay_drag = True
+            self._overlay.unlock()
+            self._move_btn.configure(text=i18n.t("lock_overlay"), bg=ACCENT, fg="#1e1e2e")
+        else:
+            self._overlay_drag = False
+            self._overlay.lock()
+            self._move_btn.configure(text=i18n.t("move_overlay"), bg=BG2, fg=TEXT2)
 
     def _clear_gems(self):
         self._seen_gems = {}

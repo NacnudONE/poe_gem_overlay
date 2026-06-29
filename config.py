@@ -13,6 +13,6 @@ REFRESH_INTERVAL = 1800
 # Мінімальна схожість назви для збігу (0.0 - 1.0)
 MATCH_THRESHOLD = 0.6
 
-# Позиція overlay на екрані (відступ від правого краю, відступ зверху)
-OVERLAY_MARGIN_RIGHT = 20
-OVERLAY_MARGIN_TOP = 100
+# Позиція overlay на екрані
+OVERLAY_X = 20
+OVERLAY_Y = 100

@@ -1,5 +1,7 @@
 _TRANSLATIONS = {
     "uk": {
+        "move_overlay":  "📍 Перемістити overlay",
+        "lock_overlay":  "🔒 Зафіксувати",
         "settings":      " Налаштування ",
         "league":        "Ліга:",
         "hotkey":        "Клавіша:",
@@ -24,6 +26,8 @@ _TRANSLATIONS = {
         "not_found":     "  Не знайдено: {gem_name}",
     },
     "en": {
+        "move_overlay":  "📍 Move overlay",
+        "lock_overlay":  "🔒 Lock position",
         "settings":      " Settings ",
         "league":        "League:",
         "hotkey":        "Hotkey:",
