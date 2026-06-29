@@ -1,7 +1,9 @@
 _TRANSLATIONS = {
     "uk": {
-        "move_overlay":  "📍 Перемістити overlay",
-        "lock_overlay":  "🔒 Зафіксувати",
+        "move_overlay":    "📍 Перемістити overlay",
+        "lock_overlay":    "🔒 Зафіксувати",
+        "update_available": "🔔 Доступне оновлення {version}",
+        "download_update":  "Завантажити",
         "settings":      " Налаштування ",
         "league":        "Ліга:",
         "hotkey":        "Клавіша:",
@@ -26,8 +28,10 @@ _TRANSLATIONS = {
         "not_found":     "  Не знайдено: {gem_name}",
     },
     "en": {
-        "move_overlay":  "📍 Move overlay",
-        "lock_overlay":  "🔒 Lock position",
+        "move_overlay":    "📍 Move overlay",
+        "lock_overlay":    "🔒 Lock position",
+        "update_available": "🔔 Update available {version}",
+        "download_update":  "Download",
         "settings":      " Settings ",
         "league":        "League:",
         "hotkey":        "Hotkey:",

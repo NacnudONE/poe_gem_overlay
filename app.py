@@ -3,6 +3,8 @@ from tkinter import ttk
 import threading
 import time
 import queue
+import webbrowser
+import requests
 import config
 from core import trade_fetcher
 from capture import tooltip_scanner
@@ -20,6 +22,16 @@ TEXT = "#cdd6f4"
 TEXT2 = "#a6adc8"
 
 SCAN_INTERVAL = 0.5
+_RELEASES_URL = "https://github.com/NacnudONE/poe_gem_overlay/releases/latest"
+
+
+def _is_newer_version(latest: str, current: str) -> bool:
+    def parse(v: str):
+        try:
+            return tuple(int(x) for x in v.strip().split("."))
+        except Exception:
+            return (0,)
+    return parse(latest) > parse(current)
 
 
 class App(tk.Tk):
@@ -44,6 +56,7 @@ class App(tk.Tk):
         self.after(200, self._load_prices)
         self.after(100, self._process_log)
         self.after(300, self._fetch_leagues_async)
+        self.after(2000, self._check_update_async)
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -67,6 +80,23 @@ class App(tk.Tk):
         self._lang_btn.place(relx=1.0, rely=0.0, anchor="ne", x=-8, y=6)
 
         ttk.Separator(self, orient="horizontal").pack(fill=tk.X, padx=10)
+
+        # --- Банер оновлення (прихований за замовчуванням) ---
+        self._update_bar = tk.Frame(self, bg="#1a2800", padx=12, pady=5)
+        self._update_lbl = tk.Label(
+            self._update_bar, text="",
+            font=("Consolas", 9), fg="#aeff55", bg="#1a2800", anchor="w",
+        )
+        self._update_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._update_btn = tk.Button(
+            self._update_bar, text=i18n.t("download_update"),
+            font=("Consolas", 9, "bold"), bg="#3a5500", fg="#aeff55",
+            activebackground="#4a6a00", activeforeground="#ffffff",
+            relief="flat", bd=0, padx=10, pady=2, cursor="hand2",
+            command=self._open_update,
+        )
+        self._update_btn.pack(side=tk.RIGHT)
+        # _update_bar не пакуємо — з'явиться тільки при оновленні
 
         # --- Налаштування ---
         self._cfg_frame = tk.LabelFrame(
@@ -189,6 +219,17 @@ class App(tk.Tk):
         self._move_btn.configure(
             text=i18n.t("lock_overlay") if self._overlay_drag else i18n.t("move_overlay")
         )
+        self._update_btn.configure(text=i18n.t("download_update"))
+        # Оновлюємо текст банера якщо він видимий
+        cur_text = self._update_lbl.cget("text")
+        if cur_text:
+            # Витягуємо версію з поточного тексту і перекладаємо
+            import re
+            m = re.search(r"v[\d.]+", cur_text)
+            if m:
+                self._update_lbl.configure(
+                    text=i18n.t("update_available", version=m.group())
+                )
 
         # Кнопка старт/стоп
         if self._running:
@@ -240,6 +281,34 @@ class App(tk.Tk):
     def _do_fetch_leagues(self):
         leagues = trade_fetcher.fetch_leagues()
         self.after(0, lambda: self._league_combo.configure(values=leagues))
+
+    # ------------------------------------------------------------------ Оновлення
+
+    def _check_update_async(self):
+        threading.Thread(target=self._do_check_update, daemon=True).start()
+
+    def _do_check_update(self):
+        try:
+            r = requests.get(
+                "https://api.github.com/repos/NacnudONE/poe_gem_overlay/releases/latest",
+                timeout=8,
+            )
+            if not r.ok:
+                return
+            tag = r.json().get("tag_name", "").lstrip("v")
+            if tag and _is_newer_version(tag, config.VERSION):
+                self.after(0, lambda: self._show_update_banner(f"v{tag}"))
+        except Exception:
+            pass
+
+    def _show_update_banner(self, version: str):
+        self._update_lbl.configure(text=i18n.t("update_available", version=version))
+        self._update_bar.pack(fill=tk.X, padx=0, pady=0, after=None)
+        # Вставляємо одразу після сепаратора (перед _cfg_frame)
+        self._update_bar.pack_configure(before=self._cfg_frame)
+
+    def _open_update(self):
+        webbrowser.open(_RELEASES_URL)
 
     def _toggle_overlay_drag(self):
         if not self._overlay_drag:
