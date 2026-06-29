@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Середовища
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Скріншоти
+Screenshot*.png
+
+# Дебаг-файли
+dbg_*.png
+test_capture.png
+debug_gem_*.png
+
+# Іконки каменів (великі бінарники, завантажуються автоматично)
+icons/*.png
