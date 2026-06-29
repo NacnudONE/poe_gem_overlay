@@ -82,20 +82,25 @@ class App(tk.Tk):
         ttk.Separator(self, orient="horizontal").pack(fill=tk.X, padx=10)
 
         # --- Банер оновлення (прихований за замовчуванням) ---
-        self._update_bar = tk.Frame(self, bg="#1a2800", padx=12, pady=5)
-        self._update_lbl = tk.Label(
+        self._update_bar  = tk.Frame(self, bg="#1a2800", padx=12, pady=5)
+        self._update_lbl  = tk.Label(
             self._update_bar, text="",
             font=("Consolas", 9), fg="#aeff55", bg="#1a2800", anchor="w",
         )
         self._update_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._update_progress = ttk.Progressbar(
+            self._update_bar, mode="determinate", length=80,
+        )
+        # _update_progress пакується тільки під час завантаження
         self._update_btn = tk.Button(
             self._update_bar, text=i18n.t("download_update"),
             font=("Consolas", 9, "bold"), bg="#3a5500", fg="#aeff55",
             activebackground="#4a6a00", activeforeground="#ffffff",
             relief="flat", bd=0, padx=10, pady=2, cursor="hand2",
-            command=self._open_update,
+            command=self._start_download,
         )
         self._update_btn.pack(side=tk.RIGHT)
+        self._update_exe_url = None
         # _update_bar не пакуємо — з'явиться тільки при оновленні
 
         # --- Налаштування ---
@@ -295,20 +300,81 @@ class App(tk.Tk):
             )
             if not r.ok:
                 return
-            tag = r.json().get("tag_name", "").lstrip("v")
-            if tag and _is_newer_version(tag, config.VERSION):
-                self.after(0, lambda: self._show_update_banner(f"v{tag}"))
+            data = r.json()
+            tag = data.get("tag_name", "").lstrip("v")
+            if not tag or not _is_newer_version(tag, config.VERSION):
+                return
+            # Шукаємо .exe в assets
+            exe_url = None
+            for asset in data.get("assets", []):
+                if asset.get("name", "").endswith(".exe"):
+                    exe_url = asset.get("browser_download_url")
+                    break
+            self.after(0, lambda: self._show_update_banner(f"v{tag}", exe_url))
         except Exception:
             pass
 
-    def _show_update_banner(self, version: str):
+    def _show_update_banner(self, version: str, exe_url: str | None):
+        self._update_exe_url = exe_url
         self._update_lbl.configure(text=i18n.t("update_available", version=version))
-        self._update_bar.pack(fill=tk.X, padx=0, pady=0, after=None)
-        # Вставляємо одразу після сепаратора (перед _cfg_frame)
-        self._update_bar.pack_configure(before=self._cfg_frame)
+        self._update_btn.configure(
+            text=i18n.t("download_update"), state=tk.NORMAL,
+            command=self._start_download,
+        )
+        self._update_bar.pack(fill=tk.X, before=self._cfg_frame)
 
-    def _open_update(self):
-        webbrowser.open(_RELEASES_URL)
+    def _start_download(self):
+        if not self._update_exe_url:
+            webbrowser.open(_RELEASES_URL)
+            return
+        self._update_btn.configure(state=tk.DISABLED)
+        self._update_progress["value"] = 0
+        self._update_progress.pack(side=tk.RIGHT, padx=(0, 6))
+        threading.Thread(target=self._do_download, daemon=True).start()
+
+    def _do_download(self):
+        import os
+        save_path = os.path.join(
+            os.path.expanduser("~"), "Downloads", "poe_gem_overlay.exe"
+        )
+        try:
+            r = requests.get(self._update_exe_url, stream=True, timeout=60)
+            r.raise_for_status()
+            total = int(r.headers.get("content-length", 0))
+            downloaded = 0
+            with open(save_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=16384):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            pct = int(downloaded * 100 / total)
+                            self.after(0, lambda p=pct: self._on_download_progress(p))
+            self.after(0, lambda: self._on_download_done(save_path))
+        except Exception as e:
+            self.after(0, lambda: self._on_download_error())
+
+    def _on_download_progress(self, pct: int):
+        self._update_progress["value"] = pct
+        self._update_lbl.configure(text=i18n.t("downloading", pct=pct))
+
+    def _on_download_done(self, save_path: str):
+        import os
+        self._update_progress.pack_forget()
+        self._update_lbl.configure(text=i18n.t("download_done"))
+        folder = os.path.dirname(save_path)
+        self._update_btn.configure(
+            text=i18n.t("open_folder"), state=tk.NORMAL,
+            command=lambda: os.startfile(folder),
+        )
+
+    def _on_download_error(self):
+        self._update_progress.pack_forget()
+        self._update_lbl.configure(text=i18n.t("download_error"))
+        self._update_btn.configure(
+            text=i18n.t("retry"), state=tk.NORMAL,
+            command=self._start_download,
+        )
 
     def _toggle_overlay_drag(self):
         if not self._overlay_drag:
