@@ -4,20 +4,11 @@ Tooltip з'являється у лівій частині екрану.
 Назва — ПЕРШИЙ великий бірюзовий рядок тексту зверху.
 """
 import re
-import os
 import cv2
 import numpy as np
 from PIL import Image
-import pytesseract
 import mss
-
-_TESSERACT_PATHS = [
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-]
-_found = next((p for p in _TESSERACT_PATHS if os.path.exists(p)), None)
-if _found:
-    pytesseract.pytesseract.tesseract_cmd = _found
+from capture.windows_ocr import ocr as win_ocr
 
 # Бірюзовий колір назви каменя в PoE 1 (HSV OpenCV-scale)
 TEAL_LOWER = np.array([70, 50, 100])
@@ -101,8 +92,7 @@ def ocr_title_strip(cv_img: np.ndarray, band: tuple) -> str | None:
     big = cv2.resize(mask, (w * scale, h * scale), interpolation=cv2.INTER_LANCZOS4)
 
     pil = Image.fromarray(big)
-    raw = pytesseract.image_to_string(pil, lang="eng", config="--psm 7 --oem 3")
-    text = raw.strip()
+    text = win_ocr(pil).strip()
 
     # Очищаємо: тільки літери і пробіли
     cleaned = re.sub(r"[^a-zA-Z '\-]", "", text).strip()

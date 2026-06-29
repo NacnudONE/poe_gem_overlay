@@ -1,5 +1,11 @@
 mss>=9.0.1
 Pillow>=10.0.0
-pytesseract>=0.3.10
 requests>=2.31.0
 keyboard>=0.13.5
+opencv-python>=4.8.0
+numpy>=1.24.0
+winrt-runtime>=3.0.0
+winrt-Windows.Media.Ocr>=3.0.0
+winrt-Windows.Graphics.Imaging>=3.0.0
+winrt-Windows.Globalization>=3.0.0
+winrt-Windows.Storage.Streams>=3.0.0

@@ -25,7 +25,8 @@ Overlay для **Path of Exile 1**, який показує ціни Transfigure
 
 - Windows 10 / 11
 - Python 3.10+
-- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) — встановити в стандартну папку `C:\Program Files\Tesseract-OCR\`
+
+> Tesseract OCR більше **не потрібен** — використовується вбудований OCR двигун Windows.
 
 ### Встановлення
 
@@ -41,7 +42,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Або завантаж готовий **[EXE з релізів](https://github.com/NacnudONE/poe_gem_overlay/releases/latest)** — Tesseract OCR все одно потрібен.
+Або завантаж готовий **[EXE з релізів](https://github.com/NacnudONE/poe_gem_overlay/releases/latest)** — нічого більше встановлювати не треба.
 
 ### Перевірка налаштувань
 
@@ -100,7 +101,8 @@ The app monitors the gem tooltip under your cursor. When you hover over a Transf
 
 - Windows 10 / 11
 - Python 3.10+
-- [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) — install to the default path `C:\Program Files\Tesseract-OCR\`
+
+> Tesseract OCR is **no longer required** — uses the built-in Windows OCR engine.
 
 ### Installation
 
@@ -116,7 +118,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Or download the prebuilt **[EXE from Releases](https://github.com/NacnudONE/poe_gem_overlay/releases/latest)** — Tesseract OCR is still required.
+Or download the prebuilt **[EXE from Releases](https://github.com/NacnudONE/poe_gem_overlay/releases/latest)** — no additional software required.
 
 ### Check Setup
 
