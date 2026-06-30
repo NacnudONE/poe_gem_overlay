@@ -2,7 +2,14 @@ import tkinter as tk
 import ctypes
 import ctypes.wintypes
 import threading
+import os
 import config
+
+try:
+    from PIL import Image, ImageTk as _ImageTk
+    _PIL_OK = True
+except ImportError:
+    _PIL_OK = False
 
 GWL_EXSTYLE       = -20
 WS_EX_LAYERED     = 0x00080000
@@ -48,6 +55,7 @@ class GemOverlay:
         self._gem_count       = 0
         self._drag_x          = 0
         self._drag_y          = 0
+        self._gem_icon        = None   # PhotoImage — зберігаємо щоб GC не видалив
 
     def start(self):
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -70,9 +78,21 @@ class GemOverlay:
 
         # Шапка — прихована за замовчуванням, з'являється при наведенні
         self._header_frame = tk.Frame(self._frame, bg=COLOR_BG)
+
+        self._gem_icon = self._load_gem_icon(16)
+        if self._gem_icon:
+            self._header_icon = tk.Label(
+                self._header_frame,
+                image=self._gem_icon,
+                bg=COLOR_BG, anchor="w",
+            )
+            self._header_icon.pack(side=tk.LEFT, padx=(0, 4))
+        else:
+            self._header_icon = None
+
         self._header_title = tk.Label(
             self._header_frame,
-            text="⚗  PoE Gem Prices",
+            text="PoE Gem Prices",
             font=("Consolas", 10, "bold"),
             fg=COLOR_TITLE, bg=COLOR_BG, anchor="w",
         )
@@ -92,6 +112,26 @@ class GemOverlay:
         self._root.after(150, self._check_hover)
         self._root.after(500, self._check_poe_focus)
         self._root.mainloop()
+
+    # ------------------------------------------------------------------ Gem icon
+
+    def _load_gem_icon(self, size: int = 16):
+        if not _PIL_OK:
+            return None
+        icons_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icons"
+        )
+        if not os.path.isdir(icons_dir):
+            return None
+        for fname in sorted(os.listdir(icons_dir)):
+            if fname.endswith(".png"):
+                try:
+                    img = Image.open(os.path.join(icons_dir, fname)).convert("RGBA")
+                    img = img.resize((size, size), Image.LANCZOS)
+                    return _ImageTk.PhotoImage(img)
+                except Exception:
+                    continue
+        return None
 
     # ------------------------------------------------------------------ Windows API
 
@@ -198,7 +238,7 @@ class GemOverlay:
         self._header_frame.configure(bg=COLOR_BG)
         for child in self._header_frame.winfo_children():
             child.configure(bg=COLOR_BG)
-        self._header_title.configure(text="⚗  PoE Gem Prices", fg=COLOR_TITLE)
+        self._header_title.configure(text="PoE Gem Prices", fg=COLOR_TITLE)
         for w in (self._root, self._frame, self._header_frame, self._gems_frame):
             w.unbind("<ButtonPress-1>")
             w.unbind("<B1-Motion>")

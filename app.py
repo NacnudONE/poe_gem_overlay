@@ -4,6 +4,7 @@ import threading
 import time
 import queue
 import webbrowser
+import sys
 import requests
 import config
 from core import trade_fetcher
@@ -293,6 +294,9 @@ class App(tk.Tk):
         threading.Thread(target=self._do_check_update, daemon=True).start()
 
     def _do_check_update(self):
+        # При запуску з вихідного коду (не .exe) пропускаємо перевірку оновлень
+        if not getattr(sys, "frozen", False):
+            return
         try:
             r = requests.get(
                 "https://api.github.com/repos/NacnudONE/poe_gem_overlay/releases/latest",
